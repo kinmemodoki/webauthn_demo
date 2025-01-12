@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ja-JP">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebAuthn Demo</title>
+</head>
+<body>
+    <h1>WebAuthn Demo</h1>
+    <div id="client-status">
+        <p>isUVPAA: <span id="client-status-isuvpaa"></span></p>
+        <p>isCMA: <span id="client-status-iscma"></span></p>
+        <p>clientCapabilities: <span id="client-status-capabilities"></span></p>
+    </div>
+    <label for="username">Username:</label>
+    <input type="text" id="username" name="username" autocomplete="webauthn";><br>
+    <button id="create-passkey">Create Passkey</button>
+    <button id="get-passkey">Get Passkey</button>
+    <div id="error-message" style="color: red;"></div>
+
+    <script>
+        function displayError(message) {
+            document.getElementById('error-message').innerText = message;
+        }
+        function disableAllFunctions() {
+            document.getElementById('create-passkey').disabled = true;
+            document.getElementById('get-passkey').disabled = true;
+        }
+        const rp = location.hostname === 'webauthn.kinmemodoki.net'
+            ? { name: 'webauthn.kinmemodoki.net', id: 'webauthn.kinmemodoki.net' }
+            : { name: 'localhost' };
+        const conditionalHandler = (() => {
+            let condGetAbortController;
+            const waitConditionalGet = () => {
+                console.log('Waiting for conditional get');
+                condGetAbortController = new AbortController();
+                return navigator.credentials.get({
+                    publicKey: {
+                        challenge: new Uint8Array(32),
+                        rp,
+                        allowCredentials: []
+                    },
+                    signal: condGetAbortController.signal,
+                    mediation: 'conditional'
+                }).catch( err => {
+                    if (err.name === 'AbortError') {
+                        console.log('Conditional get aborted');
+                    } else {
+                        throw err;
+                    }
+                });
+            };
+            const interruptConditionalGet = async (callback) => {
+                if (condGetAbortController !== undefined) {
+                    condGetAbortController.abort();
+                    await callback();
+                    waitConditionalGet();
+                } else {
+                    await callback();
+                }
+            };
+            return {
+                waitConditionalGet,
+                interruptConditionalGet
+            };
+        })();
+
+        window.addEventListener("load", async () => {
+            if (window.PublicKeyCredential === undefined) {
+                disableAllFunctions();
+                displayError('This page is not supported in this browser');
+                return;
+            }
+            const isCMA = PublicKeyCredential.isConditionalMediationAvailable
+                ? await PublicKeyCredential.isConditionalMediationAvailable()
+                : false;
+            if (isCMA) {
+                conditionalHandler.waitConditionalGet();
+            }
+
+            document.getElementById('create-passkey').addEventListener('click', async () => {
+                let username = document.getElementById('username').value;
+                if (!username) {
+                    username = 'demo-user';
+                }
+                const createPasskey = async () => {
+                    try {
+                        const publicKey = {
+                            challenge: new Uint8Array(32),
+                            rp,
+                            user: {
+                                id: new Uint8Array(16),
+                                name: username,
+                                displayName: username
+                            },
+                            pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }]
+                        };
+                        const credential = await navigator.credentials.create({ publicKey });
+                        console.log('Credential created:', credential);
+
+                    } catch (err) {
+                        console.error('Error creating credential:', err);
+                        displayError('Error creating credential: ' + err.message);
+                    }
+                };
+                await conditionalHandler.interruptConditionalGet(createPasskey);
+            });
+
+            document.getElementById('get-passkey').addEventListener('click', async () => {
+                    const getPasskey = async () => {
+                        try {
+                            console.log('Getting assertion');
+                            const publicKey = {
+                                challenge: new Uint8Array(32),
+                                rp,
+                                allowCredentials: []
+                            };
+                            const assertion = await navigator.credentials.get({ publicKey });
+                            console.log('Assertion:', assertion);
+                        } catch (err) {
+                            console.error('Error getting assertion:', err);
+                            displayError('Error getting assertion: ' + err.message);
+                        }
+                    };
+                await conditionalHandler.interruptConditionalGet(getPasskey);
+            });
+
+            // Check WebAuthn functions support status
+            document.getElementById('client-status-isuvpaa').innerText = 
+                PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable
+                    ? (await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()).toString()
+                    : 'notSupported';
+            document.getElementById('client-status-iscma').innerText = 
+                PublicKeyCredential.isConditionalMediationAvailable
+                    ? (await PublicKeyCredential.isConditionalMediationAvailable()).toString()
+                    : 'notSupported';
+            document.getElementById('client-status-capabilities').innerText = 
+                PublicKeyCredential.getClientCapabilities
+                    ? JSON.stringify(await PublicKeyCredential.getClientCapabilities(), null, 2)
+                    : 'notSupported';
+        });
+    </script>
+</body>
+</html>
