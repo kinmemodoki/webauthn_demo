@@ -68,7 +68,7 @@
         window.addEventListener("load", async () => {
             if (window.PublicKeyCredential === undefined) {
                 disableAllFunctions();
-                displayError('This page is not supported in this browser');
+                displayError('This page is not supported in this browser(PublicKeyCredential is not defined)');
                 return;
             }
             const isCMA = PublicKeyCredential.isConditionalMediationAvailable
