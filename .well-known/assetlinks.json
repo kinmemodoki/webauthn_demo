@@ -1,0 +1,14 @@
+[
+    {
+        "relation" : [
+            "delegate_permission/common.handle_all_urls",
+            "delegate_permission/common.get_login_creds"
+        ],
+        "target": {
+            "namespace": "android_app",
+            "package_name": "net.kinmemodoki.webviewtest",
+            "sha256_cert_fingerprints":
+            ["F4:AD:32:10:FA:08:2D:81:11:E6:B8:C3:80:C4:E6:AD:FB:34:31:80:BF:C6:D1:75:92:95:A6:0D:5C:0E:51:F4"]
+        }
+    }
+]
