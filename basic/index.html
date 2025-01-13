@@ -68,6 +68,7 @@
         window.addEventListener("load", async () => {
             if (window.PublicKeyCredential === undefined) {
                 disableAllFunctions();
+                console.log('This page is not supported in this browser(PublicKeyCredential is not defined)');
                 displayError('This page is not supported in this browser(PublicKeyCredential is not defined)');
                 return;
             }
